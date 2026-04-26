@@ -1,6 +1,6 @@
 # GrantFlow MCP Server
 
-A Model Context Protocol (MCP) server that exposes your GrantFlow Django backend as AI-accessible tools, paired with a FastAPI web chat interface powered by Server-Sent Events (SSE).
+A Model Context Protocol (MCP) server that exposes your Grant Management System Django backend as AI-accessible tools, paired with a FastAPI web chat interface powered by Server-Sent Events (SSE).
 
 Ask questions about your grants, budgets, subgrantees, reports, and disbursements in plain English — the agent queries your real Django data in real time and streams its tool calls to the browser as they happen.
 
