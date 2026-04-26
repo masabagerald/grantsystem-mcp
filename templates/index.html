@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GrantFlow Assistant</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: system-ui, sans-serif; background: #f5f5f1; color: #1a1a1a; height: 100vh; display: flex; flex-direction: column; }
+
+    /* Header */
+    .header { background: #fff; border-bottom: 0.5px solid #e2e2dc; padding: .85rem 1.5rem; display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; }
+    .header-left { display: flex; align-items: center; gap: .75rem; }
+    .header-logo { width: 28px; height: 28px; background: #1a1a1a; border-radius: 6px; display: flex; align-items: center; justify-content: center; }
+    .header-logo svg { width: 16px; height: 16px; fill: #fff; }
+    .header h1 { font-size: .95rem; font-weight: 600; }
+    .header-sub { font-size: .75rem; color: #aaa; }
+    .clear-btn { background: none; border: 1px solid #e2e2dc; border-radius: 6px; padding: 4px 12px; font-size: .78rem; color: #888; cursor: pointer; transition: all .15s; }
+    .clear-btn:hover { border-color: #999; color: #1a1a1a; }
+
+    /* Chat area */
+    .chat-area { flex: 1; overflow-y: auto; padding: 1.5rem; display: flex; flex-direction: column; gap: 1rem; }
+
+    /* Messages */
+    .msg-wrap { display: flex; flex-direction: column; gap: .35rem; }
+    .msg-wrap.user { align-items: flex-end; }
+    .msg-wrap.assistant { align-items: flex-start; }
+
+    .msg-bubble { max-width: 72%; padding: .75rem 1rem; border-radius: 12px; font-size: .9rem; line-height: 1.65; }
+    .msg-wrap.user .msg-bubble { background: #1a1a1a; color: #fff; border-bottom-right-radius: 4px; }
+    .msg-wrap.assistant .msg-bubble { background: #fff; border: 0.5px solid #e2e2dc; border-bottom-left-radius: 4px; }
+
+    .msg-label { font-size: .72rem; color: #bbb; padding: 0 .25rem; }
+
+    /* Tool call feed */
+    .tool-feed { max-width: 72%; display: flex; flex-direction: column; gap: .4rem; }
+
+    .tool-item { border: 0.5px solid #e2e2dc; border-radius: 8px; overflow: hidden; background: #fff; font-size: .8rem; }
+    .tool-header { display: flex; align-items: center; gap: 8px; padding: .5rem .75rem; cursor: pointer; user-select: none; }
+    .tool-header:hover { background: #fafaf7; }
+    .tool-spinner { width: 12px; height: 12px; border: 1.5px solid #ddd; border-top-color: #1a1a1a; border-radius: 50%; animation: spin .6s linear infinite; flex-shrink: 0; }
+    .tool-check { width: 12px; height: 12px; color: #166534; flex-shrink: 0; font-size: 12px; line-height: 1; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .tool-name { font-weight: 500; color: #1a1a1a; font-family: monospace; }
+    .tool-args-preview { color: #aaa; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 200px; }
+    .tool-chevron { margin-left: auto; color: #ccc; font-size: 10px; transition: transform .15s; }
+    .tool-chevron.open { transform: rotate(180deg); }
+
+    .tool-body { display: none; border-top: 0.5px solid #f0f0ea; padding: .6rem .75rem; }
+    .tool-body.open { display: block; }
+    .tool-section-label { font-size: .7rem; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; color: #bbb; margin-bottom: .3rem; }
+    .tool-code { font-family: monospace; font-size: .78rem; color: #444; background: #fafaf7; border-radius: 4px; padding: .4rem .6rem; white-space: pre-wrap; word-break: break-word; max-height: 160px; overflow-y: auto; }
+
+    /* Typing indicator */
+    .typing { display: flex; align-items: center; gap: 4px; padding: .75rem 1rem; background: #fff; border: 0.5px solid #e2e2dc; border-radius: 12px; border-bottom-left-radius: 4px; width: fit-content; }
+    .typing span { width: 6px; height: 6px; border-radius: 50%; background: #ccc; animation: pulse 1.2s ease-in-out infinite; }
+    .typing span:nth-child(2) { animation-delay: .2s; }
+    .typing span:nth-child(3) { animation-delay: .4s; }
+    @keyframes pulse { 0%,80%,100%{opacity:.3} 40%{opacity:1} }
+
+    /* Suggestions */
+    .suggestions { padding: 0 1.5rem 1rem; display: flex; gap: .5rem; flex-wrap: wrap; }
+    .suggestion { background: #fff; border: 0.5px solid #e2e2dc; border-radius: 20px; padding: 5px 14px; font-size: .8rem; color: #555; cursor: pointer; transition: all .15s; white-space: nowrap; }
+    .suggestion:hover { border-color: #999; color: #1a1a1a; }
+
+    /* Input */
+    .input-wrap { background: #fff; border-top: 0.5px solid #e2e2dc; padding: 1rem 1.5rem; flex-shrink: 0; }
+    .input-row { display: flex; gap: .6rem; align-items: flex-end; }
+    .input-row textarea { flex: 1; border: 1px solid #ddd; border-radius: 10px; padding: .65rem .9rem; font-size: .9rem; font-family: inherit; resize: none; min-height: 44px; max-height: 140px; overflow-y: auto; background: #fafaf7; color: #1a1a1a; line-height: 1.5; }
+    .input-row textarea:focus { outline: none; border-color: #999; background: #fff; }
+    .send-btn { width: 40px; height: 40px; background: #1a1a1a; color: #fff; border: none; border-radius: 10px; cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: opacity .15s; }
+    .send-btn:hover { opacity: .82; }
+    .send-btn:disabled { opacity: .35; cursor: not-allowed; }
+    .send-btn svg { width: 16px; height: 16px; fill: none; stroke: #fff; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+    /* Empty state */
+    .empty-state { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #aaa; text-align: center; padding: 2rem; }
+    .empty-state h2 { font-size: 1rem; font-weight: 500; color: #555; margin-bottom: .4rem; }
+    .empty-state p { font-size: .85rem; line-height: 1.6; max-width: 340px; }
+  </style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-left">
+    <div class="header-logo">
+      <svg viewBox="0 0 16 16"><path d="M2 3h12v2H2zm0 4h8v2H2zm0 4h10v2H2z"/></svg>
+    </div>
+    <div>
+      <div class="header h1">GrantFlow Assistant</div>
+      <div class="header-sub">Ask anything about your grants, budgets, reports &amp; disbursements</div>
+    </div>
+  </div>
+  <button class="clear-btn" onclick="clearChat()">Clear chat</button>
+</div>
+
+<div class="chat-area" id="chat-area">
+  <div class="empty-state" id="empty-state">
+    <h2>What would you like to know?</h2>
+    <p>Ask about grants, budgets, subgrantees, reports, or disbursements. The agent will query your GrantFlow data in real time.</p>
+  </div>
+</div>
+
+<div class="suggestions" id="suggestions">
+  <span class="suggestion" onclick="sendSuggestion(this)">How many active grants do we have?</span>
+  <span class="suggestion" onclick="sendSuggestion(this)">Which subgrantees are in the Northern region?</span>
+  <span class="suggestion" onclick="sendSuggestion(this)">What is the budget summary for grant 1?</span>
+  <span class="suggestion" onclick="sendSuggestion(this)">Show pending disbursements for grant 1</span>
+  <span class="suggestion" onclick="sendSuggestion(this)">List all unapproved reports</span>
+</div>
+
+<div class="input-wrap">
+  <div class="input-row">
+    <textarea id="msg-input" placeholder="Ask about your grants data…" rows="1"
+      onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendMessage()}"
+      oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,140)+'px'"></textarea>
+    <button class="send-btn" id="send-btn" onclick="sendMessage()">
+      <svg viewBox="0 0 24 24"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+    </button>
+  </div>
+</div>
+
+<script>
+  // Conversation history for multi-turn context
+  let history = [];
+  let isStreaming = false;
+
+  const chatArea  = document.getElementById('chat-area');
+  const sendBtn   = document.getElementById('send-btn');
+  const msgInput  = document.getElementById('msg-input');
+  const emptyState = document.getElementById('empty-state');
+  const suggestions = document.getElementById('suggestions');
+
+  function clearChat() {
+    history = [];
+    chatArea.innerHTML = '';
+    chatArea.appendChild(emptyState);
+    emptyState.style.display = 'flex';
+    suggestions.style.display = 'flex';
+  }
+
+  function hideEmpty() {
+    emptyState.style.display = 'none';
+    suggestions.style.display = 'none';
+  }
+
+  function scrollBottom() {
+    chatArea.scrollTop = chatArea.scrollHeight;
+  }
+
+  function appendUserMsg(text) {
+    hideEmpty();
+    const wrap = document.createElement('div');
+    wrap.className = 'msg-wrap user';
+    wrap.innerHTML = `
+      <div class="msg-label">You</div>
+      <div class="msg-bubble">${escHtml(text)}</div>
+    `;
+    chatArea.appendChild(wrap);
+    scrollBottom();
+  }
+
+  function createAssistantTurn() {
+    hideEmpty();
+    const wrap = document.createElement('div');
+    wrap.className = 'msg-wrap assistant';
+    wrap.innerHTML = `<div class="msg-label">GrantFlow Assistant</div>`;
+
+    // Tool feed container
+    const feed = document.createElement('div');
+    feed.className = 'tool-feed';
+    wrap.appendChild(feed);
+
+    // Typing indicator
+    const typing = document.createElement('div');
+    typing.className = 'typing';
+    typing.innerHTML = '<span></span><span></span><span></span>';
+    wrap.appendChild(typing);
+
+    chatArea.appendChild(wrap);
+    scrollBottom();
+    return { wrap, feed, typing };
+  }
+
+  function addToolCall(feed, id, name, args) {
+    const item = document.createElement('div');
+    item.className = 'tool-item';
+    item.id = `tool-${id}`;
+    item.innerHTML = `
+      <div class="tool-header" onclick="toggleTool('${id}')">
+        <div class="tool-spinner" id="spinner-${id}"></div>
+        <span class="tool-name">${escHtml(name)}</span>
+        <span class="tool-args-preview">${escHtml(JSON.stringify(args))}</span>
+        <span class="tool-chevron" id="chev-${id}">▾</span>
+      </div>
+      <div class="tool-body" id="body-${id}">
+        <div class="tool-section-label">Arguments</div>
+        <div class="tool-code">${escHtml(JSON.stringify(args, null, 2))}</div>
+      </div>
+    `;
+    feed.appendChild(item);
+    scrollBottom();
+  }
+
+  function resolveToolCall(id, result) {
+    const spinner = document.getElementById(`spinner-${id}`);
+    if (spinner) {
+      spinner.outerHTML = `<span class="tool-check">✓</span>`;
+    }
+    const body = document.getElementById(`body-${id}`);
+    if (body) {
+      const resultStr = typeof result === 'string'
+        ? result
+        : JSON.stringify(result, null, 2);
+      body.innerHTML += `
+        <div class="tool-section-label" style="margin-top:.5rem">Result</div>
+        <div class="tool-code">${escHtml(resultStr.slice(0, 800))}${resultStr.length > 800 ? '\n…' : ''}</div>
+      `;
+    }
+  }
+
+  function toggleTool(id) {
+    const body = document.getElementById(`body-${id}`);
+    const chev = document.getElementById(`chev-${id}`);
+    if (body) body.classList.toggle('open');
+    if (chev) chev.classList.toggle('open');
+  }
+
+  function showAnswer(wrap, typing, content) {
+    typing.remove();
+    const bubble = document.createElement('div');
+    bubble.className = 'msg-bubble';
+    bubble.textContent = content;
+    wrap.appendChild(bubble);
+    scrollBottom();
+  }
+
+  function escHtml(str) {
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
+  async function sendMessage() {
+    const text = msgInput.value.trim();
+    if (!text || isStreaming) return;
+    msgInput.value = '';
+    msgInput.style.height = 'auto';
+    doSend(text);
+  }
+
+  function sendSuggestion(el) {
+    if (isStreaming) return;
+    doSend(el.textContent);
+  }
+
+  async function doSend(question) {
+    isStreaming = true;
+    sendBtn.disabled = true;
+
+    appendUserMsg(question);
+    const { wrap, feed, typing } = createAssistantTurn();
+
+    const params = new URLSearchParams({
+      question,
+      history: JSON.stringify(history),
+    });
+
+    const evtSource = new EventSource(`/chat?${params}`);
+
+    evtSource.addEventListener('tool_call', e => {
+      const d = JSON.parse(e.data);
+      addToolCall(feed, d.id, d.name, d.args);
+    });
+
+    evtSource.addEventListener('tool_result', e => {
+      const d = JSON.parse(e.data);
+      resolveToolCall(d.id, d.result);
+    });
+
+    evtSource.addEventListener('answer', e => {
+      const d = JSON.parse(e.data);
+      showAnswer(wrap, typing, d.content);
+
+      // Update conversation history for multi-turn
+      history.push({ role: 'user',      content: question });
+      history.push({ role: 'assistant', content: d.content });
+
+      evtSource.close();
+      isStreaming = false;
+      sendBtn.disabled = false;
+      msgInput.focus();
+    });
+
+    evtSource.addEventListener('error', e => {
+      try {
+        const d = JSON.parse(e.data);
+        showAnswer(wrap, typing, `Error: ${d.message}`);
+      } catch {
+        showAnswer(wrap, typing, 'Something went wrong. Check the terminal.');
+      }
+      evtSource.close();
+      isStreaming = false;
+      sendBtn.disabled = false;
+    });
+
+    evtSource.onerror = () => {
+      evtSource.close();
+      isStreaming = false;
+      sendBtn.disabled = false;
+    };
+  }
+</script>
+</body>
+</html>
